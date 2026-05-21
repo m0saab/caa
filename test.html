@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Ramadan Arena</title>
+    <style>
+        :root { --deep-purple: #1a0f2e; --gold: #d4af37; --glass: rgba(255, 255, 255, 0.08); }
+        body { 
+            margin: 0; height: 100vh; width: 100vw; overflow: hidden;
+            background: radial-gradient(circle at center, #2d1b4e, #1a0f2e); 
+            color: white; font-family: 'Segoe UI', sans-serif;
+            display: flex; justify-content: center; align-items: center;
+        }
+
+        /* Setup Page UI */
+        #setup { width: 400px; padding: 40px; border-radius: 25px; border: 1px solid var(--gold); background: var(--glass); backdrop-filter: blur(20px); text-align: center; }
+        input { width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.2); color: white; }
+        button { width: 100%; padding: 15px; border-radius: 10px; border: none; background: var(--gold); color: var(--deep-purple); font-weight: bold; cursor: pointer; margin-top: 15px; }
+
+        /* Game UI */
+        #game { display: none; width: 100vw; height: 100vh; flex-direction: column; padding: 20px; }
+        .header { display: flex; justify-content: space-between; align-items: center; padding: 0 20px; }
+        .board { flex-grow: 1; border: 2px dashed var(--gold); margin: 20px 0; display: flex; justify-content: center; align-items: center; gap: 15px; flex-wrap: wrap; }
+        
+        /* 550x850 aspect ratio (1 : 1.545) */
+        .card { width: 110px; height: 170px; border: 2px solid var(--gold); border-radius: 8px; cursor: grab; transition: 0.2s; background: rgba(255,255,255,0.1); }
+        .player-hand { height: 190px; display: flex; justify-content: center; align-items: center; gap: 15px; background: rgba(0,0,0,0.3); border-radius: 15px; }
+    </style>
+</head>
+<body>
+
+    <div id="setup">
+        <h1 style="color: var(--gold)">🌙 Ramadan Arena</h1>
+        <input type="number" id="numPlayers" placeholder="Number of players (2-4)" min="2" max="4" oninput="generateInputs()">
+        <div id="nameInputs"></div>
+        <input type="number" id="timeLimit" placeholder="Time per turn (sec, 0 for inf)">
+        <button onclick="initGame()">ENTER ARENA</button>
+    </div>
+
+    <div id="game">
+        <div class="header">
+            <h2 id="turnIndicator" style="color: var(--gold)"></h2>
+            <div id="timer" style="font-size: 1.5rem"></div>
+        </div>
+        <div class="board" id="board" ondrop="drop(event)" ondragover="allowDrop(event)"></div>
+        <div class="player-hand" id="hand"></div>
+    </div>
+
+    <script>
+        let playerCount, playerNames, hands, reserves, board, currentPlayer, deck, timeLimit, timerInterval;
+
+        function generateInputs() {
+            const count = document.getElementById('numPlayers').value;
+            const container = document.getElementById('nameInputs');
+            container.innerHTML = '';
+            for (let i = 1; i <= count; i++) {
+                container.innerHTML += `<input type="text" id="name${i}" placeholder="Name for Player ${i}">`;
+            }
+        }
+
+        function initGame() {
+            playerCount = parseInt(document.getElementById('numPlayers').value);
+            playerNames = [];
+            for (let i = 1; i <= playerCount; i++) playerNames.push(document.getElementById(`name${i}`).value || `P${i}`);
+            timeLimit = parseInt(document.getElementById('timeLimit').value);
+            
+            deck = Array.from({length: 70}, (_, i) => i + 1).sort(() => Math.random() - 0.5);
+            hands = Array.from({length: playerCount}, () => []);
+            reserves = Array.from({length: playerCount}, () => []);
+            board = [];
+            
+            for(let i=0; i<4; i++) board.push(deck.pop());
+            for(let p=0; p<playerCount; p++) refillHand(p);
+            
+            currentPlayer = 0;
+            document.getElementById('setup').style.display = 'none';
+            document.getElementById('game').style.display = 'flex';
+            startTurn();
+        }
+
+        function refillHand(p) {
+            while (hands[p].length < 3 && deck.length > 0) hands[p].push(deck.pop());
+        }
+
+        function startTurn() {
+            let timeLeft = timeLimit;
+            clearInterval(timerInterval);
+            if (timeLimit > 0) {
+                document.getElementById('timer').innerText = `⏳ ${timeLeft}s`;
+                timerInterval = setInterval(() => {
+                    timeLeft--;
+                    document.getElementById('timer').innerText = `⏳ ${timeLeft}s`;
+                    if (timeLeft <= 0) { clearInterval(timerInterval); nextTurn(); }
+                }, 1000);
+            } else {
+                document.getElementById('timer').innerText = "✨";
+            }
+            render();
+        }
+
+        function allowDrop(ev) { ev.preventDefault(); }
+        function drag(ev, cardVal) { ev.dataTransfer.setData("card", cardVal); }
+
+        function drop(ev) {
+            ev.preventDefault();
+            const myCard = parseInt(ev.dataTransfer.getData("card"));
+            const target = ev.target.dataset.value ? parseInt(ev.target.dataset.value) : null;
+            if (target) {
+                board = board.filter(c => c !== target);
+                reserves[currentPlayer].push(target, myCard);
+                hands[currentPlayer] = hands[currentPlayer].filter(c => c !== myCard);
+            } else {
+                board.push(myCard);
+                hands[currentPlayer] = hands[currentPlayer].filter(c => c !== myCard);
+            }
+            nextTurn();
+        }
+
+        function nextTurn() {
+            if (hands[currentPlayer].length === 0) refillHand(currentPlayer);
+            currentPlayer = (currentPlayer + 1) % playerCount;
+            startTurn();
+        }
+
+        function render() {
+            document.getElementById('turnIndicator').innerText = `${playerNames[currentPlayer]}'s Turn`;
+            const boardDiv = document.getElementById('board');
+            boardDiv.innerHTML = '';
+            board.forEach(val => {
+                const img = document.createElement('img');
+                img.src = `${val}.png`;
+                img.className = 'card';
+                img.dataset.value = val;
+                boardDiv.appendChild(img);
+            });
+
+            const handDiv = document.getElementById('hand');
+            handDiv.innerHTML = '';
+            hands[currentPlayer].forEach(val => {
+                const img = document.createElement('img');
+                img.src = `${val}.png`;
+                img.className = 'card';
+                img.draggable = true;
+                img.ondragstart = (e) => drag(e, val);
+                handDiv.appendChild(img);
+            });
+        }
+    </script>
+</body>
+</html>
