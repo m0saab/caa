@@ -2,9 +2,22 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <!-- CRITICAL FOR MOBILE RESPONSIVENESS -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Ramadan Arena</title>
     <style>
         :root { --deep-purple: #1a0f2e; --gold: #d4af37; --glass: rgba(255, 255, 255, 0.08); }
+        
+        * {
+            box-sizing: border-box;
+            /* Fixes the text-selection and ghost-highlight bug across all browsers */
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            ms-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
         body { 
             margin: 0; height: 100vh; width: 100vw; overflow: hidden;
             background: radial-gradient(circle at center, #2d1b4e, #1a0f2e); 
@@ -12,25 +25,58 @@
             display: flex; justify-content: center; align-items: center;
         }
 
-        /* Setup Page UI */
-        #setup { width: 400px; padding: 40px; border-radius: 25px; border: 1px solid var(--gold); background: var(--glass); backdrop-filter: blur(20px); text-align: center; }
-        input { width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.2); color: white; }
-        button { width: 100%; padding: 15px; border-radius: 10px; border: none; background: var(--gold); color: var(--deep-purple); font-weight: bold; cursor: pointer; margin-top: 15px; }
+        /* Setup Page UI - Made fully responsive */
+        #setup { 
+            width: 90%; max-width: 400px; padding: 30px 20px; border-radius: 25px; 
+            border: 1px solid var(--gold); background: var(--glass); backdrop-filter: blur(20px); text-align: center; 
+        }
+        input { width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.2); color: white; font-size: 1rem; }
+        button { width: 100%; padding: 15px; border-radius: 10px; border: none; background: var(--gold); color: var(--deep-purple); font-weight: bold; cursor: pointer; margin-top: 15px; font-size: 1rem; }
 
         /* Game UI */
-        #game { display: none; width: 100vw; height: 100vh; flex-direction: column; padding: 20px; }
-        .header { display: flex; justify-content: space-between; align-items: center; padding: 0 20px; }
-        .board { flex-grow: 1; border: 2px dashed var(--gold); margin: 20px 0; display: flex; justify-content: center; align-items: center; gap: 15px; flex-wrap: wrap; }
+        #game { display: none; width: 100vw; height: 100vh; flex-direction: column; padding: 10px; justify-content: space-between; }
+        .header { display: flex; justify-content: space-between; align-items: center; padding: 0 10px; height: 60px; }
+        .header h2 { margin: 0; font-size: 1.3rem; }
         
-        /* 550x850 aspect ratio (1 : 1.545) */
-        .card { width: 110px; height: 170px; border: 2px solid var(--gold); border-radius: 8px; cursor: grab; transition: 0.2s; background: rgba(255,255,255,0.1); }
-        .player-hand { height: 190px; display: flex; justify-content: center; align-items: center; gap: 15px; background: rgba(0,0,0,0.3); border-radius: 15px; }
+        .board { 
+            flex-grow: 1; border: 2px dashed var(--gold); margin: 10px 0; 
+            display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap;
+            padding: 10px; overflow-y: auto; position: relative;
+        }
+        
+        /* Dynamic Card Sizing: Keeps the 1 : 1.545 aspect ratio fluid on small devices */
+        .card { 
+            width: calc(18vw - 5px); max-width: 110px; 
+            height: calc((18vw - 5px) * 1.545); max-height: 170px;
+            border: 2px solid var(--gold); border-radius: 8px; cursor: grab; transition: transform 0.1s; 
+            background: rgba(255,255,255,0.1); object-fit: cover;
+            touch-action: none; /* Prevents the mobile screen from scrolling while dragging a card */
+        }
+        
+        /* Visual cue for active desktop dragging */
+        .card:active { cursor: grabbing; }
+
+        /* This utility class handles the smooth rendering of the floating touch clone on mobile */
+        .dragging-clone {
+            position: fixed !important;
+            z-index: 9999 !important;
+            pointer-events: none !important;
+            opacity: 0.8;
+            transform: scale(1.05);
+            transition: none !important;
+        }
+
+        .player-hand { 
+            height: calc(((18vw - 5px) * 1.545) + 20px); max-height: 190px; 
+            display: flex; justify-content: center; align-items: center; gap: 10px; 
+            background: rgba(0,0,0,0.3); border-radius: 15px; padding: 10px;
+        }
     </style>
 </head>
 <body>
 
     <div id="setup">
-        <h1 style="color: var(--gold)">🌙 Ramadan Arena</h1>
+        <h1 style="color: var(--gold); margin-top: 0;">🌙 Ramadan Arena</h1>
         <input type="number" id="numPlayers" placeholder="Number of players (2-4)" min="2" max="4" oninput="generateInputs()">
         <div id="nameInputs"></div>
         <input type="number" id="timeLimit" placeholder="Time per turn (sec, 0 for inf)">
@@ -40,7 +86,7 @@
     <div id="game">
         <div class="header">
             <h2 id="turnIndicator" style="color: var(--gold)"></h2>
-            <div id="timer" style="font-size: 1.5rem"></div>
+            <div id="timer" style="font-size: 1.3rem"></div>
         </div>
         <div class="board" id="board" ondrop="drop(event)" ondragover="allowDrop(event)"></div>
         <div class="player-hand" id="hand"></div>
@@ -48,21 +94,28 @@
 
     <script>
         let playerCount, playerNames, hands, reserves, board, currentPlayer, deck, timeLimit, timerInterval;
+        
+        // Mobile Global Variables
+        let activeClone = null;
+        let activeCardValue = null;
 
         function generateInputs() {
             const count = document.getElementById('numPlayers').value;
             const container = document.getElementById('nameInputs');
             container.innerHTML = '';
-            for (let i = 1; i <= count; i++) {
+            for (let i = 1; i <= Math.min(Math.max(count, 2), 4); i++) {
                 container.innerHTML += `<input type="text" id="name${i}" placeholder="Name for Player ${i}">`;
             }
         }
 
         function initGame() {
-            playerCount = parseInt(document.getElementById('numPlayers').value);
+            playerCount = parseInt(document.getElementById('numPlayers').value) || 2;
+            if(playerCount < 2) playerCount = 2;
+            if(playerCount > 4) playerCount = 4;
+            
             playerNames = [];
             for (let i = 1; i <= playerCount; i++) playerNames.push(document.getElementById(`name${i}`).value || `P${i}`);
-            timeLimit = parseInt(document.getElementById('timeLimit').value);
+            timeLimit = parseInt(document.getElementById('timeLimit').value) || 0;
             
             deck = Array.from({length: 70}, (_, i) => i + 1).sort(() => Math.random() - 0.5);
             hands = Array.from({length: playerCount}, () => []);
@@ -98,13 +151,75 @@
             render();
         }
 
+        /* --- DESKTOP DRAG & DROP ENGINE --- */
         function allowDrop(ev) { ev.preventDefault(); }
         function drag(ev, cardVal) { ev.dataTransfer.setData("card", cardVal); }
 
         function drop(ev) {
             ev.preventDefault();
             const myCard = parseInt(ev.dataTransfer.getData("card"));
-            const target = ev.target.dataset.value ? parseInt(ev.target.dataset.value) : null;
+            if(isNaN(myCard)) return;
+            executeMove(myCard, ev.target);
+        }
+
+        /* --- MOBILE TOUCH DRAG ENGINE --- */
+        function handleTouchStart(e, val) {
+            activeCardValue = val;
+            const originalCard = e.target;
+            const touch = e.touches[0];
+            
+            // Generate a ghost clone card to float underneath the user's finger
+            activeClone = originalCard.cloneNode(true);
+            activeClone.classList.add('dragging-clone');
+            
+            // Size match assurance
+            const rect = originalCard.getBoundingClientRect();
+            activeClone.style.width = rect.width + 'px';
+            activeClone.style.height = rect.height + 'px';
+            
+            // Center the element safely under the user's thumb
+            activeClone.style.left = (touch.clientX - rect.width / 2) + 'px';
+            activeClone.style.top = (touch.clientY - rect.height / 2) + 'px';
+            
+            document.body.appendChild(activeClone);
+            originalCard.style.opacity = '0.3'; 
+        }
+
+        function handleTouchMove(e) {
+            if (!activeClone) return;
+            const touch = e.touches[0];
+            const rect = activeClone.getBoundingClientRect();
+            
+            // Update clone positioning smoothly during movement
+            activeClone.style.left = (touch.clientX - rect.width / 2) + 'px';
+            activeClone.style.top = (touch.clientY - rect.height / 2) + 'px';
+        }
+
+        function handleTouchEnd(e) {
+            if (!activeClone) return;
+            
+            const touch = e.changedTouches[0];
+            // Remove clone elements cleanly
+            activeClone.remove();
+            activeClone = null;
+            
+            // Track element boundaries underneath the released finger coordinate
+            const dropTarget = document.elementFromPoint(touch.clientX, touch.clientY);
+            const boardDiv = document.getElementById('board');
+            
+            // Process context valid drop actions
+            if (dropTarget && (boardDiv.contains(dropTarget) || dropTarget === boardDiv)) {
+                executeMove(activeCardValue, dropTarget);
+            } else {
+                render(); // Restore visibility seamlessly if dropped out of bounds
+            }
+            activeCardValue = null;
+        }
+
+        /* --- CENTRAL GAME LOGIC PROCESSOR --- */
+        function executeMove(myCard, targetElement) {
+            const target = (targetElement && targetElement.dataset.value) ? parseInt(targetElement.dataset.value) : null;
+            
             if (target) {
                 board = board.filter(c => c !== target);
                 reserves[currentPlayer].push(target, myCard);
@@ -131,6 +246,8 @@
                 img.src = `${val}.png`;
                 img.className = 'card';
                 img.dataset.value = val;
+                // Disables systemic browser image blueprinting bugs when dragging
+                img.addEventListener('dragstart', (e) => e.preventDefault());
                 boardDiv.appendChild(img);
             });
 
@@ -141,7 +258,15 @@
                 img.src = `${val}.png`;
                 img.className = 'card';
                 img.draggable = true;
+                
+                // Desktop Mouse Hooks
                 img.ondragstart = (e) => drag(e, val);
+                
+                // Native Mobile Touch Hooks
+                img.addEventListener('touchstart', (e) => handleTouchStart(e, val), { passive: true });
+                img.addEventListener('touchmove', handleTouchMove, { passive: true });
+                img.addEventListener('touchend', handleTouchEnd);
+                
                 handDiv.appendChild(img);
             });
         }
