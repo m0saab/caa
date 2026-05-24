@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <!-- CRITICAL FOR MOBILE RESPONSIVENESS -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Ramadan Arena</title>
     <style>
@@ -35,9 +34,24 @@
 
         /* Game UI */
         #game { display: none; width: 100vw; height: 100vh; flex-direction: column; padding: 10px; justify-content: space-between; }
-        .header { display: flex; justify-content: space-between; align-items: center; padding: 0 10px; height: 60px; }
+        .header { display: flex; justify-content: space-between; align-items: center; padding: 0 10px; height: 50px; }
         .header h2 { margin: 0; font-size: 1.3rem; }
         
+        /* Scoreboard Panel */
+        .scoreboard {
+            display: flex; justify-content: center; gap: 15px; background: rgba(0, 0, 0, 0.2);
+            padding: 8px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.1);
+            margin: 5px 10px; flex-wrap: wrap;
+        }
+        .score-box {
+            font-size: 0.95rem; padding: 4px 10px; border-radius: 6px; border: 1px solid transparent;
+            transition: all 0.3s ease; background: rgba(255, 255, 255, 0.03);
+        }
+        .score-box.active {
+            border-color: var(--gold); background: rgba(212, 175, 55, 0.15);
+            text-shadow: 0 0 5px var(--gold); font-weight: bold;
+        }
+
         .board { 
             flex-grow: 1; border: 2px dashed var(--gold); margin: 10px 0; 
             display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap;
@@ -88,6 +102,8 @@
             <h2 id="turnIndicator" style="color: var(--gold)"></h2>
             <div id="timer" style="font-size: 1.3rem"></div>
         </div>
+        <div class="scoreboard" id="scoreboard"></div>
+        
         <div class="board" id="board" ondrop="drop(event)" ondragover="allowDrop(event)"></div>
         <div class="player-hand" id="hand"></div>
     </div>
@@ -226,6 +242,7 @@
                 hands[currentPlayer] = hands[currentPlayer].filter(c => c !== myCard);
             } else {
                 board.push(myCard);
+                hands[currentPlayer] = hands[currentPlayer].filter(c => r !== myCard);
                 hands[currentPlayer] = hands[currentPlayer].filter(c => c !== myCard);
             }
             nextTurn();
@@ -239,6 +256,17 @@
 
         function render() {
             document.getElementById('turnIndicator').innerText = `${playerNames[currentPlayer]}'s Turn`;
+            
+            // Update Scoreboard Engine
+            const scoreboardDiv = document.getElementById('scoreboard');
+            scoreboardDiv.innerHTML = '';
+            for(let p = 0; p < playerCount; p++) {
+                const scoreBox = document.createElement('div');
+                scoreBox.className = `score-box ${p === currentPlayer ? 'active' : ''}`;
+                scoreBox.innerText = `${playerNames[p]}: ${reserves[p].length} pts`;
+                scoreboardDiv.appendChild(scoreBox);
+            }
+
             const boardDiv = document.getElementById('board');
             boardDiv.innerHTML = '';
             board.forEach(val => {
@@ -273,3 +301,4 @@
     </script>
 </body>
 </html>
+
